@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- 最基本的命名空间定义和空间装载 -->
+<beans
+		xmlns="http://www.springframework.org/schema/beans"
+		xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xsi:schemaLocation="http://www.springframework.org/schema/beans
+http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
+
+	<!-- 创建 SimpleDateFormat 实例并对这个实例进行实例化-->
+
+	<bean id="user" class="com.zzc.vo.User">
+	</bean>
+</beans>

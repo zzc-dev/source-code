@@ -1,0 +1,111 @@
+注解方式解析spring IOC 源码
+
+一、.register(annotatedClasses); 向spring容器中注册几个默认的后置处理器、配置类、监听器的处理器
+  org.springframework.context.annotation.internalConfigurationAnnotationProcessor
+  org.springframework.context.annotation.internalAutowiredAnnotationProcessor
+  org.springframework.context.annotation.internalCommonAnnotationProcessor
+  org.springframework.context.annotation.internalRequiredAnnotationProcessor
+
+  org.springframework.context.event.internalEventListenerFactory
+  org.springframework.context.event.internalEventListenerProcessor  【SmartInitializingSingleton】
+
+  myComponentScan
+
+二、.refresh(); 刷新spring容器，【重点】
+1.prepareRefresh(); 初始化容器前的准备工作。如：记录下容器的启动时间、标记“已启动”状态、处理配置文件中的占位符
+   this.earlyApplicationEvents = new LinkedHashSet<>(); 初始化容器事件缓存
+
+2.ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory(); 获取spring容器
+   该beanFactory实际上是DefaultListableBeanFactory
+
+3.prepareBeanFactory(beanFactory); BeanFactory的预处理
+  1）设置BeanFactory的类加载器、表达式解析器
+  2）注册BeanPostProcessor 【ApplicationContextAwareProcessor、ApplicationListenerDetector】
+
+4.postProcessBeanFactory(beanFactory); 子类通过重写该方法在【预处理后自定义对BeanFactory做进一步的设置】
+
+5.invokeBeanFactoryPostProcessors(beanFactory);
+  a）将被注解修饰的bean注册到工厂中;
+  b）将实现ImportBeanDefinitionRegistrar的bean实例化并调用registerBeanDefinitions   该bean存在configClass.getImportBeanDefinitionRegistrars()
+  c）实例化@Import 下的Selector 和上面的Registrar一样，他们的目的都是将某个bean注册到spring容器中，因此，他们在parse时已经被实例化了，然后去调用方法注册bean
+  d）找出所有beanFactory后置处理器，并且调用这些处理器来改变bean的定义
+
+  1)beanFactory.getBeanNamesForType(BeanDefinitionRegistryPostProcessor.class, true, false); 得到PriorityOrdered的BeanDefinitionRegistryPostProcessor
+    这里只会有一个：（一）中的internalConfigurationAnnotationProcessor，执行postProcessBeanDefinitionRegistry()
+       作用：a）、b）、c)
+            它会扫描配置类得到配置类中配置的BeanDefinitionRegistryPostProcessor、BeanFactroy、ImportBeanDefinitionRegistrar
+  2）beanFactory.getBeanNamesForType(BeanDefinitionRegistryPostProcessor.class, true, false); 得到1）中注入的BeanDefinitionRegistryPostProcessor
+     按@Ordered、无Ordered注解的顺序去调用postProcessBeanDefinitionRegistry()
+  3）执行完BeanDefinitionRegistryPostProcessor.postProcessBeanDefinitionRegistry()后，继续执行BeanDefinitionRegistryPostProcessor.postProcessBeanFactory
+  4）beanFactory.getBeanNamesForType(BeanFactoryPostProcessor.class, true, false);
+     按熟悉执行@PriorityOrdered、@Ordered、其他的BeanFactoryPostProcessor.postProcessBeanFactory()
+
+6.registerBeanPostProcessors(beanFactory);向BeanFactory注册并实例化BeanPostProcessor
+    注册顺序：
+    	 *   1.BeanPostProcessorChecker  --默认
+    	 *   2.@PriorityOrdered
+    	 *   3.@Ordered
+    	 *   4.NoOrdered（没有上面两个注解的）
+    	 *   5.MergedBeanDefinitionPostProcessor（它也是被@PriorityOrdered修饰的，所以会注册两次）
+    	 *   6.ApplicationListenerDetector --默认
+
+7.initMessageSource();
+
+8.initApplicationEventMulticaster();  初始化事件多播器
+  this.applicationEventMulticaster = new SimpleApplicationEventMulticaster(beanFactory);
+
+9.onRefresh(); 初始化其他特殊的bean，将给子类自定义
+
+10.registerListeners(); 注册ApplicationListener监听器
+   1）getApplicationEventMulticaster().addApplicationListener(listener); 向事件多播器中注册监听器
+   2）getApplicationEventMulticaster().multicastEvent(earlyEvent);
+        遍历【二.1】中的earlyApplicationEvents，对早期发布的事件调用事件多播器的 multicastEvent() 发布事件
+
+11.finishBeanFactoryInitialization(); 创建并初始化所有的单例非懒加载的bean
+   --> 1）beanFactory.preInstantiateSingletons();
+                --> ...--> doGetBean()
+                createBean() -->doCreateBean()
+                    *     createBeanInstance(beanName, mbd, args);  1.bean已创建好
+                    *     populateBean(beanName, mbd, instanceWrapper); 2.给bean的属性赋值
+                    *     initializeBean 3.初始化Bean
+                    *            invokeAwareMethods                            3.1 处理Aware接口方法回调
+                    *            applyBeanPostProcessorsBeforeInitialization   3.2 处理后置处理器的postProcessBeforeInstantiation方法
+                    *            invokeInitMethods                             3.3 执行自定义的初始化方法
+                    *            applyBeanPostProcessorsAfterInitialization    3.4 执行后置处理器的postProcessAfterInstantiation方法
+       2）在所有bean创建并初始化完成后，查看是否有SmartInitializingSingleton的bean（【一】中已经注册了该bean），有则执行它的afterSingletonsInstantiated()
+           SmartInitializingSingleton.afterSingletonsInstantiated()
+                 遍历容器中的bean
+                 processBean(factories, beanName, type);
+                    扫描该bean是否有@EventListener的方法，如果有，将该方法适配成一个监听器ApplicationListener
+                    将监听器添加到容器和多播器中
+
+
+12.finishRefresh(); 完成容器刷新，开启一个容器刷新事件
+   publishEvent(new ContextRefreshedEvent(this));
+
+注：
+1.容器的缓存信息
+ AbstractBeanFactory.beanPostProcessors: 存放后置处理器
+
+2.BeanDefinitionRegistryPostProcessor和BeanactoryPostProcessor的区别
+    BeanDefinitionRegistryPostProcessor             extends            BeanFactoryPostProcessor
+    postProcessBeanDefinitionRegistry()                                 postProcessBeanFactory()
+    在标准初始化后修改应用程序上下文的内部                              在标准初始化后修改应用程序上下文的内部bean工厂。
+    bean定义注册表。所有的常规bean定义都将被加载                        所有的bean定义都将被加载，但是还没有bean被实例化。
+    =======================================                           ============================================
+    简单来说，它就是用来注册bean的                                      该方法是在bean全部注册后，对BeanFactory做后置处理
+
+3.对【二、5.b】的理解
+  invokeBeanFactoryPostProcessors()
+     1) 得到一个@PriorityOrdered internalConfigurationAnnotationProcessor (扫描配置注解的BeanDefinitionRegistryPostProcessor)
+     2）执行invokeBeanDefinitionRegistryPostProcessors(currentRegistryProcessors, registry)
+           parser.parse(candidates);
+               扫描配置类下的所有@Import、@Bean、@Compoment的组件并注册到容器中
+               将@Import下的Selector、ImportBeanDefinitionRegistrar的类实例化并挂载到beanDefinition的某个属性下
+           loadBeanDefinitionsFromImportedResources(configClass.getImportedResources());
+           loadBeanDefinitionsFromRegistrars(configClass.getImportBeanDefinitionRegistrars());
+               执行ImportBeanDefinitionRegistrar registerBeanDefinitions() 向容器中注入某个Bean
+
+疑问：
+ 1.BeanFacotry、AbstarctApplicationContext、ConfigurableListableBeanFactory之间的关系
+ 2.ConfigurableListableBeanFactory存在哪里
