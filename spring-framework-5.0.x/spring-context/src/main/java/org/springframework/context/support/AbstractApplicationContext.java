@@ -521,21 +521,22 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			prepareRefresh();
 
 			//===================xml==================
-			// 这步比较关键，这步完成后，配置文件就会解析成一个个 Bean 定义，注册到 BeanFactory 中，
-			// 当然，这里说的 Bean 还没有初始化，只是配置信息都提取出来了，
+			//TODO 负责BeanFactory的初始化，Bean的加载和注册
+			//这步比较关键，这步完成后，配置文件就会解析成一个个 Bean 定义，注册到 BeanFactory(DefaultListableBeanFactory) 中，
+			//当然，这里说的 Bean 还没有初始化，只是配置信息都提取出来了，
 			//注册也只是将这些信息都保存到了注册中心(说到底核心是一个 beanName-> beanDefinition 的 map)
 
 			// ==================注解============
 			//TODO 基于注解这步与xml完全不同，只是为了获取当前的BeanFactory
 			ConfigurableListableBeanFactory beanFactory = obtainFreshBeanFactory();
 
-			// Prepare the bean factory for use in this context.
-			// 注解：配置默认的后置处理器
+			// 1.设置BeanFactory的类加载器
+			// 2.添加几个BeanPostProcessor
+			// 3.手动注册几个特殊的bean
 			prepareBeanFactory(beanFactory);
 
 			try {
-				// Allows post-processing of the bean factory in context subclasses.
-				//
+				// Spring扩展点，子类通过重写该方法在【预处理后自定义对BeanFactory做进一步的设置】
 				postProcessBeanFactory(beanFactory);
 
 				//TODO 将被注解修饰的bean注册到工厂中;
@@ -562,7 +563,7 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 				// Check for listener beans and register them.
 				registerListeners();
 
-				// Instantiate all remaining (non-lazy-init) singletons.
+				// 初始化所有的没有设置懒加载的singleton bean.
 				finishBeanFactoryInitialization(beanFactory);
 
 				// Last step: publish corresponding event.
@@ -607,11 +608,10 @@ public abstract class AbstractApplicationContext extends DefaultResourceLoader
 			logger.info("Refreshing " + this);
 		}
 
-		// Initialize any placeholder property sources in the context environment.
+		// 初始化加载配置文件方法，并没有具体实现，一个留给用户的扩展点
 		initPropertySources();
 
-		// Validate that all properties marked as required are resolvable:
-		// see ConfigurablePropertyResolver#setRequiredProperties
+		// 检查环境变量
 		getEnvironment().validateRequiredProperties();
 
 		// Store pre-refresh ApplicationListeners...

@@ -12,7 +12,7 @@ public class XMLMainTest {
 //				return super.getSource();
 //			}
 //		});
-		System.out.println(context.getBean("user"));
+		System.out.println(context.getBean("user1"));
 		context.close();
 	}
 

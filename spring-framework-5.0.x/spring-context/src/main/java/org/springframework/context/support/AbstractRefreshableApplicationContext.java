@@ -128,7 +128,7 @@ public abstract class AbstractRefreshableApplicationContext extends AbstractAppl
 			beanFactory.setSerializationId(getId());
 			//TODO 设置该容器下的bean是否可以覆盖和循环引用
 			customizeBeanFactory(beanFactory);
-			//TODO ***重点***
+			//TODO ***重点*** 加载 Bean 到 BeanFactory 中
 			loadBeanDefinitions(beanFactory);
 			this.beanFactory = beanFactory;
 		}

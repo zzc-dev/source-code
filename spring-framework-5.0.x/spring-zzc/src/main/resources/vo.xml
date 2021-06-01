@@ -8,6 +8,6 @@ http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
 
 	<!-- 创建 SimpleDateFormat 实例并对这个实例进行实例化-->
 
-	<bean id="user" class="com.zzc.vo.User">
+	<bean id="user1" class="com.zzc.vo.User">
 	</bean>
 </beans>

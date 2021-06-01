@@ -141,6 +141,8 @@ public class ClassPathXmlApplicationContext extends AbstractXmlApplicationContex
 
 		super(parent);
         //AbstractRefreshableConfigApplicationContext.configLocations 存放configLocations配置文件路径
+		//1. 创建环境对象ConfigurableEnvironment
+		//2. 处理ClassPathXmlApplicationContext传入的字符串中的占位符
 		setConfigLocations(configLocations);
 		if (refresh) {
 			refresh();
