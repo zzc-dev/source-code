@@ -245,7 +245,6 @@ public class AnnotatedBeanDefinitionReader {
 
 		BeanDefinitionHolder definitionHolder = new BeanDefinitionHolder(abd, beanName);
 		//TODO 还是初始化beanDefinition的属性 分析Scope中的ProxyMode，一般在会话Scope中使用
-		// 详情见https://blog.csdn.net/u013423085/article/details/82872533
 		definitionHolder = AnnotationConfigUtils.applyScopedProxyMode(scopeMetadata, definitionHolder, this.registry);
 		// TODO 重点：将bean注册到beanFoctory
 		BeanDefinitionReaderUtils.registerBeanDefinition(definitionHolder, this.registry);

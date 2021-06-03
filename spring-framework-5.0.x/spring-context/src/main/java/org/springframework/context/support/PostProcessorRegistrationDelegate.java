@@ -105,6 +105,7 @@ final class PostProcessorRegistrationDelegate {
 			// 得到beanFactory中的BeanDefinitionRegistryPostProcessors
 			String[] postProcessorNames =
 					beanFactory.getBeanNamesForType(BeanDefinitionRegistryPostProcessor.class, true, false);
+			// 注解org.springframework.context.annotation.internalConfigurationAnnotationProcessor -> org.springframework.context.annotation.ConfigurationClassPostProcessor
 			for (String ppName : postProcessorNames) {
 				if (beanFactory.isTypeMatch(ppName, PriorityOrdered.class)) {
 					currentRegistryProcessors.add(beanFactory.getBean(ppName, BeanDefinitionRegistryPostProcessor.class));
